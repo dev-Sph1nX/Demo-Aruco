@@ -173,19 +173,23 @@ public class SimpleSampleCharacterControl : MonoBehaviour
 
         JumpingAndLanding();
     }
-
+    private float calcPosition(float max, float min, float percentage)
+    {
+        return (max - min) * percentage + min;
+    }
     public void sendData(Data jsonData)
     {
         Vector2 percentage = new Vector2(jsonData.x / 100, jsonData.y / 100);
-        positionX = maxX * percentage.x - minX;
-        positionY = maxY * percentage.y - minY;
+        positionX = calcPosition(maxX, minX, percentage.x);
+        positionY = calcPosition(maxY, minY, percentage.y);
     }
+
 
     private void DirectUpdate()
     {
         Vector3 position = transform.position;
         position.x = Mathf.Lerp(position.x, positionX, Time.deltaTime / 0.5f);
-        position.y = Mathf.Lerp(position.y, positionY, Time.deltaTime / 0.5f);
+        position.z = Mathf.Lerp(position.z, positionY, Time.deltaTime / 0.5f);
         transform.position = position;
 
         // float v = Input.GetAxis("Vertical");
