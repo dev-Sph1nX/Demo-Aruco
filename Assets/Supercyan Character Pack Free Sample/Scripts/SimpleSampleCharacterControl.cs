@@ -29,7 +29,9 @@ public class SimpleSampleCharacterControl : MonoBehaviour
     [SerializeField] float minY;
     [SerializeField] float maxY;
     [SerializeField] float positionX;
-    [SerializeField] float positionY;
+    [SerializeField] float positionZ;
+    [SerializeField][Range(0, 0.2f)] float mouvementSensibility;
+    [SerializeField][Range(1, 20)] float expo = 10;
 
 
     // [SerializeField]  [Range(0, 1)] float x2 = 0.2f;
@@ -53,11 +55,16 @@ public class SimpleSampleCharacterControl : MonoBehaviour
     private bool m_isGrounded;
 
     private List<Collider> m_collisions = new List<Collider>();
+    private Vector3 localPosition, direction;
+    private Quaternion localRotation, tempRotation;
+    private float deltaTime, velocity;
 
     private void Awake()
     {
         if (!m_animator) { gameObject.GetComponent<Animator>(); }
         if (!m_rigidBody) { gameObject.GetComponent<Animator>(); }
+        localPosition = new Vector3(positionX, -0.5f, positionZ);
+        localRotation = new Quaternion(0, 0, 0, 0);
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -117,6 +124,9 @@ public class SimpleSampleCharacterControl : MonoBehaviour
 
     private void Update()
     {
+        transform.localPosition = localPosition;
+        transform.localRotation = localRotation;
+        deltaTime = Time.deltaTime;
         if (!m_jumpInput && Input.GetKey(KeyCode.Space))
         {
             m_jumpInput = true;
@@ -177,28 +187,59 @@ public class SimpleSampleCharacterControl : MonoBehaviour
     {
         return (max - min) * percentage + min;
     }
-    public void sendData(Data jsonData)
+    public void sendData(Coord coord)
     {
-        Vector2 percentage = new Vector2(jsonData.x / 100, jsonData.y / 100);
-        positionX = calcPosition(maxX, minX, percentage.x);
-        positionY = calcPosition(maxY, minY, percentage.y);
+        // Récupération des coordonnées
+        Vector2 percentage = new Vector2((coord.x / 100), (coord.y / 100));
+
+        // Calcul des positions à partir de pourcentage
+        float newPositionX = calcPosition(maxX, minX, percentage.x);
+        float newPositionZ = calcPosition(maxY, minY, percentage.y);
+        // newPositionX = Mathf.Lerp(newPositionX, positionX, deltaTime * m_interpolation);
+        // newPositionZ = Mathf.Lerp(newPositionZ, positionZ, deltaTime * m_interpolation);
+
+        direction = new Vector3(newPositionX, localPosition.y, newPositionZ) - localPosition;
+        Debug.DrawRay(localPosition, direction, Color.green, 1);
+
+        if (direction.magnitude > mouvementSensibility)
+        {
+            // Position
+            positionX = newPositionX;
+            positionZ = newPositionZ;
+            localPosition.x = Mathf.Lerp(localPosition.x, positionX, deltaTime * m_interpolation);
+            localPosition.z = Mathf.Lerp(localPosition.z, positionZ, deltaTime * m_interpolation);
+
+            // direction
+            float angle = Mathf.Atan2(direction.z, direction.x) * Mathf.Rad2Deg - 90;
+            Quaternion angleAxis = Quaternion.AngleAxis(angle, Vector3.down);
+            Quaternion newRotation = Quaternion.Slerp(localRotation, angleAxis, deltaTime * m_interpolation);
+            localRotation = Quaternion.Lerp(newRotation, localRotation, deltaTime * m_interpolation);
+        }
     }
 
 
     private void DirectUpdate()
     {
-        Vector3 position = transform.position;
-        position.x = Mathf.Lerp(position.x, positionX, Time.deltaTime / 0.5f);
-        position.z = Mathf.Lerp(position.z, positionY, Time.deltaTime / 0.5f);
-        transform.position = position;
+        direction = Vector3.Lerp(direction, Vector3.zero, Time.deltaTime * m_interpolation);
+        float magnitude = direction.magnitude * expo;
+        if (direction.magnitude < mouvementSensibility)
+        {
+            magnitude = 0;
+        }
+        velocity = Mathf.Lerp(velocity, magnitude, Time.deltaTime * m_interpolation);
+        m_animator.SetFloat("MoveSpeed", velocity);
+
+
+        // Vector3 position = transform.position;
+        // position.x = Mathf.Lerp(position.x, positionX, Time.deltaTime / 0.5f);
+        // position.z = Mathf.Lerp(position.z, positionZ, Time.deltaTime / 0.5f);
+        // transform.position = position;
 
         // float v = Input.GetAxis("Vertical");
         // float h = Input.GetAxis("Horizontal");
 
         // float positionX = maxX * x;
-        // float positionY = maxY * y - 5;
-
-
+        // float positionZ = maxY * y - 5;
 
         // Debug.Log("v" + v);
         // Debug.Log("h" + h);
@@ -230,7 +271,7 @@ public class SimpleSampleCharacterControl : MonoBehaviour
         //     m_animator.SetFloat("MoveSpeed", direction.magnitude);
         // }
 
-        // transform.position = new Vector3(positionX, 0, positionY);
+        // transform.position = new Vector3(positionX, 0, positionZ);
 
         JumpingAndLanding();
     }
